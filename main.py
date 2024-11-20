@@ -131,6 +131,24 @@ def dump_firing_coords(replay):
     for coord, count in sorted_defenders_coords:
         logging.info(str(coord) + " " + str(count))
 
+    print_coord_frequencies(attackers_coords)
+
+
+def print_coord_frequencies(coords_frequencies):
+    max_value = max(coords_frequencies.values())
+    max_value_digit_length = len(str(max_value))
+    max_x_coord = max(map(lambda k: k[0], list(coords_frequencies.keys())))
+    max_y_coord = max(map(lambda k: k[1], list(coords_frequencies.keys())))
+    out = ""
+    for x in range(max_x_coord):
+        out += "|"
+        for y in range(max_y_coord):
+            value = coords_frequencies[(x, y)]
+            out += str(value).rjust(max_value_digit_length, ' ')
+            out += ", "
+        out += "|\n"
+    print(out)
+
 
 def main(args):
     """Handles the CLI args to call analyze one or more replays"""
