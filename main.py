@@ -4,8 +4,6 @@ import argparse
 import gzip
 import logging
 import sys
-import matplotlib.pyplot as plt
-import numpy as np
 
 from awbw_replay.awbw import AWBWGameAction, AWBWGameState
 from awbw_replay.replay import AWBWReplay
@@ -14,9 +12,10 @@ EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 
 # These are just random names for cleaner viewing.
-PLAYER_NAMES = ["Andy", "Bob", "Colin", "Drake", "Eagle", "Flak", "Grit", "Hawke"]
+PLAYER_NAMES = ["Alice", "Bob", "Colin", "Drake", "Eagle", "Flak", "Grit", "Hawke"]
 
 LOGGING_LEVELS = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"]
+
 
 def get_args(argv=None):
     """
@@ -47,12 +46,15 @@ def get_args(argv=None):
 
     return parser.parse_args(argv)
 
-def test_replay(replay, show_plot=True):
+
+def dump_end_of_day_funds(replay, show_plot=True):
     """Parses a replay to generate plots of data"""
     states = [AWBWGameState(replay_initial=replay.game_info())]
 
     # Generate all the states
+    ## States are the way the game looked as the turn ended
     for action in replay.actions():
+        # Get the action
         action = AWBWGameAction(replay_action=action)
         message = [
             f"turn: {states[-1].game_info['turn']}",
@@ -60,11 +62,12 @@ def test_replay(replay, show_plot=True):
             f"action_type: {action.type}",
         ]
         logging.debug(" ".join(message))
+        # Apply the action to the latest game state
         states.append(states[-1].apply_action(action))
 
     players = {}
     for p_id, player in states[-1].players.items():
-        players[p_id] = {"name": "Loser" if player["eliminated"] else "Winner", "funds": []}
+        players[p_id] = {"name": "Loser " if player["eliminated"] else "Winner", "funds": []}
 
     # For each state, get the day. If it's the last state of the day, track both player's stats
     day = 1
@@ -73,21 +76,10 @@ def test_replay(replay, show_plot=True):
             for p_id, player in players.items():
                 player["funds"].append(state.players[p_id]["funds"])
             day += 1
+    logging.info("End of day funds:")
+    for player in players.values():
+        logging.info(player['name'] + " " + str(player['funds']))
 
-    x_vals = np.arange(1, day)
-    x_offsets = np.linspace(-0.5, 0.5, num=len(players) + 2)
-    x_width = 1.0 / (len(players) + 1)
-
-    for i, p_id in enumerate(players.keys()):
-        player = players[p_id]
-        plt.bar(x_vals + x_offsets[i + 1], player["funds"], width=x_width, label=player["name"])
-
-    plt.xlim([0, day])
-    plt.xticks(x_vals)
-    plt.legend()
-
-    if show_plot:
-        plt.show()
 
 def main(args):
     """Handles the CLI args to call analyze one or more replays"""
@@ -96,7 +88,7 @@ def main(args):
 
     if not args.file_list:
         with AWBWReplay(args.file) as replay:
-            test_replay(replay)
+            dump_end_of_day_funds(replay)
     else:
         logging.info("Running on a file list")
         replay_files = []
@@ -108,12 +100,13 @@ def main(args):
             logging.info("Opening %s", filename)
             try:
                 with AWBWReplay(filename) as replay:
-                    test_replay(replay, show_plot=False)
+                    dump_end_of_day_funds(replay, show_plot=False)
             except gzip.BadGzipFile as e:
                 logging.error("Could not open replay %s: %s", filename, e)
                 continue
 
     return EXIT_SUCCESS
+
 
 if __name__ == "__main__":
     sys.exit(main(get_args()))

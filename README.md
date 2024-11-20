@@ -72,3 +72,7 @@ This project is open source and welcomes contributions from the community.
 Please review the [contribution guidelines](https://github.com/TarkanAl-Kazily/awbw_replay_parser/blob/main/CONTRIBUTING.md) for how to get involved.
 
 Spoiler alert: Bugs probably exist in this repository. Please use Github's Issues system for reporting, and be as detailed as you can. Again, see the contributing guidelines for more information.
+
+source /home/gwatson/Documents/repos/awbw_replay_parser/venv/bin/activate
+pip install -r requirements
+python3 main.py /home/gwatson/Downloads/awbw/1168157.zip --verbose INFO
