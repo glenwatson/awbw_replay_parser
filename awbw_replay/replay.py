@@ -10,6 +10,8 @@ import zipfile
 import parse
 import phpserialize
 
+from typing import List, Union
+
 # Replay files are .zip files, each of which are gzip compressed.
 # Filenames are a{game_id} and {game_id}.
 # a{game_id} file contains all the actions as csv style objects with JSON serialized
@@ -76,7 +78,7 @@ class AWBWReplay():
         self.namelist = []
         self.filedata = []
 
-        self._turns = None
+        self._turns : Union[List, None] = None
         self._game_data = None
         self._game = None
 
@@ -140,13 +142,13 @@ class AWBWReplay():
         """Returns the initial game info dictionary."""
         return self._game
 
-    def turns(self):
+    def turns(self) -> Union[List, None]:
         """Returns the list of turns in the game."""
         if self._turns is None:
             logging.warning("No actions file for this replay")
         return self._turns
 
-    def actions(self):
+    def actions(self) -> Union[List, None]:
         """Generator over every action in the game."""
         turns = self.turns()
         if turns is None:
