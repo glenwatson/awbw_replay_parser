@@ -31,12 +31,7 @@ def get_args(argv=None):
 
     parser = argparse.ArgumentParser(description="AWBW Replay Parser tool")
 
-    parser.add_argument("file", help="Replay file to open", type=str)
-    parser.add_argument(
-            "--file-list",
-            "-l",
-            help="Treat file as a list of replays to open",
-            action="store_true")
+    parser.add_argument("files", help="Replay file to open", type=str, nargs='+')
     parser.add_argument(
             "--verbose",
             "-v",
@@ -155,26 +150,14 @@ def main(args):
     # TODO: Define a custom logger to individually control the logging level of our modules
     logging.basicConfig(level=args.verbose)
 
-    if not args.file_list:
-        with AWBWReplay(args.file) as replay:
-            dump_end_of_day_funds(replay)
-            dump_firing_coords(replay)
-    else:
-        logging.info("Running on a file list")
-        replay_files = []
-        with open(args.file, "r", encoding="utf-8") as file:
-            for line in file:
-                replay_files.append(line.strip())
-
-        for filename in replay_files:
-            logging.info("Opening %s", filename)
-            try:
-                with AWBWReplay(filename) as replay:
-                    dump_end_of_day_funds(replay)
-                    dump_firing_coords(replay)
-            except gzip.BadGzipFile as e:
-                logging.error("Could not open replay %s: %s", filename, e)
-                continue
+    for filename in args.files:
+        logging.info("Opening %s", filename)
+        try:
+            with AWBWReplay(filename) as replay:
+                dump_end_of_day_funds(replay)
+                dump_firing_coords(replay)
+        except gzip.BadGzipFile as e:
+            logging.error("Could not open replay %s: %s", filename, e)
 
     return EXIT_SUCCESS
 
