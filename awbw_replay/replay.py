@@ -92,6 +92,11 @@ class AWBWReplay():
             else:
                 self._game_data = self._parse_game(self.filedata[-1])
                 self._game, _ = sanitize_phpobject(self._game_data)
+        if self._turns is None:
+            logging.warning("No actions file found in %s. Individual actions will be unavailable", self.namelist)
+        if self._game is None:
+            logging.warning("No turn file found in %s. Turn data will be unavailable", self.namelist)
+
 
         return self
 
@@ -137,11 +142,16 @@ class AWBWReplay():
 
     def turns(self):
         """Returns the list of turns in the game."""
+        if self._turns is None:
+            logging.warning("No actions file for this replay")
         return self._turns
 
     def actions(self):
         """Generator over every action in the game."""
-        for _turn in self.turns():
+        turns = self.turns()
+        if turns is None:
+            return None
+        for _turn in turns:
             yield from _turn.actions
 
     def action_summaries(self):
