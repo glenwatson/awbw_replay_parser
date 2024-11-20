@@ -109,6 +109,7 @@ class AWBWGameAction(game.GameAction):
         DELETE = "Delete"
         HIDE = "Hide"
         UNHIDE = "Unhide"
+        ATTACKSEAM = "AttackSeam"
 
     def __init__(self, replay_action):
         super().__init__()
@@ -514,6 +515,9 @@ class AWBWGameState(game.GameState):
         """
         logging.debug("End action")
         info = action_data["updatedInfo"]
+        if info["event"] == "GameOver":
+            # The game is over, there's nothing to update
+            return
         # GameInfo Info - new active player, turn, and day
         updated_game_info = {
             "active_player_id": int(info["nextPId"]),
@@ -940,6 +944,41 @@ class AWBWGameState(game.GameState):
                 buildings=move_state.buildings,
                 game_info=move_state.game_info)
 
+    def _apply_attackseam_action(self, action_data):
+        """
+        Helper for fire actions
+        """
+        logging.debug("Attack Seam action")
+
+        # Unit info
+        # - position change
+        move_state = self
+        if "Move" in action_data and isinstance(action_data["Move"], dict):
+            move_state = self._apply_move_action(action_data["Move"])
+
+        attack_seam_action = action_data["AttackSeam"]
+        assert isinstance(attack_seam_action, dict)
+
+        # Player info
+        # - power meters
+        new_player_info = deepcopy(move_state.players)
+
+        # Handle funds change in the case of Sasha's power
+        gained_funds = {}
+
+        # Unit info
+        # - ammo change
+        # - health change
+        new_unit_info = deepcopy(move_state.units)
+
+        return AWBWGameState(
+            game_map=self.game_map,
+            players=new_player_info,
+            units=new_unit_info,
+            buildings=self.buildings,
+            game_info=self.game_info)
+
+
     _ACTION_TYPE_TO_APPLY_FUNC = {
             AWBWGameAction.Type.FIRE : _apply_fire_action,
             AWBWGameAction.Type.JOIN : _apply_join_action,
@@ -956,6 +995,7 @@ class AWBWGameState(game.GameState):
             AWBWGameAction.Type.DELETE : _apply_delete_action,
             AWBWGameAction.Type.HIDE : _apply_hide_action,
             AWBWGameAction.Type.UNHIDE : _apply_unhide_action,
+            AWBWGameAction.Type.ATTACKSEAM : _apply_attackseam_action,
             }
 
     def apply_action(self, action):
