@@ -76,3 +76,20 @@ Spoiler alert: Bugs probably exist in this repository. Please use Github's Issue
 source /home/gwatson/Documents/repos/awbw_replay_parser/venv/bin/activate
 pip install -r requirements
 python3 main.py /home/gwatson/Downloads/awbw/1168157.zip --verbose INFO
+
+
+# Attacking/Defending HeatMap
+1. Go to http://awbw.mooo.com/searchReplays.php
+2. Search for a map
+3. Download all games for that map into a folder
+   1. Consider using a browser extension like `downthemall` to download them rather than having to click one-by-one
+4. run `python main.py <YOUR_FOLDER>/*.zip`
+5. Copy the line after either "Attacking coords" or "Defending coords"
+6. Paste that line into [awbw_coordinate_heatmap.js](awbw_coordinate_heatmap.js) as the `data` string. 
+   1. The entire data should fit between the double-quotes `"`
+   2. e.g. `data = "(8, 6) 90;(8, 3) 84;"`
+7. Copy the entire `awbw_coordinate_heatmap.js` file contents
+8. Open up the "Preview Map" webpage of the map you choose
+   1. e.g. https://awbw.amarriner.com/prevmaps.php?maps_id=154666
+9. Open up your browser's console and paste in the `awbw_coordinate_heatmap.js` file contents
+10. Hit enter to execute

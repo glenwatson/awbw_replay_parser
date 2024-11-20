@@ -1,6 +1,7 @@
 """Main CLI tool to use the AWBW Replay Parser libraries"""
 
 import argparse
+import glob
 import gzip
 import logging
 import sys
@@ -77,14 +78,12 @@ def dump_end_of_day_funds(replay):
         logging.info(player['name'] + " " + str(player['funds']))
 
 
-def dump_firing_coords(replay):
+def calc_firing_coords(replay: AWBWReplay, attackers_coords: defaultdict, defenders_coords: defaultdict):
     """Parses a replay to generate coordinates where firing happens"""
     states = [AWBWGameState(replay_initial=replay.game_info())]
 
     # Generate all the states
     # States are the way the game looked as the turn ended
-    attackers_coords = defaultdict(int)
-    defenders_coords = defaultdict(int)
     for action in replay.actions():
         # Get the action
         action = AWBWGameAction(replay_action=action)
@@ -93,7 +92,7 @@ def dump_firing_coords(replay):
             # Each fire action seems to have 2 entries (1 for each player?)
             # Take the one that has visibility into both the attacker and the defender
             for action_info in action_infos.values():
-                if 'attacker' in action_info['combatInfo'] and 'defender' in action_info['combatInfo']:
+                if isinstance(action_info['combatInfo']['attacker'], dict) and isinstance(action_info['combatInfo']['defender'], dict):
                     attackers_coords[
                         (action_info['combatInfo']['attacker']['units_x'],
                          action_info['combatInfo']['attacker']['units_y'])] += 1
@@ -106,30 +105,11 @@ def dump_firing_coords(replay):
         # Apply the action to the latest game state
         states.append(states[-1].apply_action(action))
 
-    players = {}
-    for p_id, player in states[-1].players.items():
-        players[p_id] = {"name": "Loser " if player["eliminated"] else "Winner", "funds": []}
-
-    # For each state, get the day. If it's the last state of the day, track both player's stats
-    day = 1
-    for i, state in enumerate(states):
-        if i + 1 >= len(states) or states[i+1].game_info["day"] == day + 1:
-            for p_id, player in players.items():
-                player["funds"].append(state.players[p_id]["funds"])
-            day += 1
-    sorted_attackers_coords = sorted(attackers_coords.items(), key=lambda kv: kv[1], reverse=True)
-    sorted_defenders_coords = sorted(defenders_coords.items(), key=lambda kv: kv[1], reverse=True)
-    logging.info("Attacking coords:")
-    for coord, count in sorted_attackers_coords:
-        logging.info(str(coord) + " " + str(count))
-    logging.info("Defending coords:")
-    for coord, count in sorted_defenders_coords:
-        logging.info(str(coord) + " " + str(count))
-
-    print_coord_frequencies(attackers_coords)
-
 
 def print_coord_frequencies(coords_frequencies):
+    if len(coords_frequencies) == 0:
+        logging.warning("Skipping due to no coordinates")
+        return
     max_value = max(coords_frequencies.values())
     max_value_digit_length = len(str(max_value))
     max_x_coord = max(map(lambda k: k[0], list(coords_frequencies.keys())))
@@ -145,19 +125,43 @@ def print_coord_frequencies(coords_frequencies):
     print(out)
 
 
+def print_attackers_defenders_coords(attackers_coords: defaultdict, defenders_coords: defaultdict):
+    sorted_attackers_coords = sorted(attackers_coords.items(), key=lambda kv: kv[1], reverse=True)
+    sorted_defenders_coords = sorted(defenders_coords.items(), key=lambda kv: kv[1], reverse=True)
+
+    print("Attacking coords:")
+    coords_str = ""
+    for coord, count in sorted_attackers_coords:
+        coords_str += str(coord) + " " + str(count) + ";"
+    print(coords_str)
+    print("Defending coords:")
+    coords_str = ""
+    for coord, count in sorted_defenders_coords:
+        coords_str += str(coord) + " " + str(count) + ";"
+    print(coords_str)
+
+    print_coord_frequencies(attackers_coords)
+    print_coord_frequencies(defenders_coords)
+
+
 def main(args):
     """Handles the CLI args to call analyze one or more replays"""
     # TODO: Define a custom logger to individually control the logging level of our modules
     logging.basicConfig(level=args.verbose)
 
-    for filename in args.files:
-        logging.info("Opening %s", filename)
-        try:
-            with AWBWReplay(filename) as replay:
-                dump_end_of_day_funds(replay)
-                dump_firing_coords(replay)
-        except gzip.BadGzipFile as e:
-            logging.error("Could not open replay %s: %s", filename, e)
+    attackers_coords = defaultdict(int)
+    defenders_coords = defaultdict(int)
+    for file_glob in args.files:
+        logging.info("Processing file glob %s", file_glob)
+        for filename in glob.iglob(file_glob):
+            logging.info("Opening %s", filename)
+            try:
+                with AWBWReplay(filename) as replay:
+                    #dump_end_of_day_funds(replay)
+                    calc_firing_coords(replay, attackers_coords, defenders_coords)
+            except gzip.BadGzipFile as e:
+                logging.error("Could not open replay %s: %s", filename, e)
+    print_attackers_defenders_coords(attackers_coords, defenders_coords)
 
     return EXIT_SUCCESS
 
