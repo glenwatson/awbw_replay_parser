@@ -83,14 +83,14 @@ python3 main.py /home/gwatson/Downloads/awbw/1168157.zip --verbose INFO
 2. Search for a map
 3. Download all games for that map into a folder
    1. Consider using a browser extension like `downthemall` to download all .zip files, rather than having to click one-by-one
-4. run `python main.py <YOUR_FOLDER>/*.zip`
-   `pip install -r requirements`
-5. Copy the line after either "Attacking coords" or "Defending coords"
-6. Paste that line into [awbw_coordinate_heatmap.js](awbw_coordinate_heatmap.js) as the `data` string. 
-   1. The entire data should fit between the double-quotes `"`
-   2. e.g. `data = "(8, 6) 90;(8, 3) 84;"`
-7. Copy the entire `awbw_coordinate_heatmap.js` file contents
-8. Open up the "Preview Map" webpage of the map you choose
+4. Open up the "Preview Map" webpage of the map you choose
    1. e.g. https://awbw.amarriner.com/prevmaps.php?maps_id=154666
-9. Open up your browser's console and paste in the `awbw_coordinate_heatmap.js` file contents
-10. Hit enter to execute
+5. Open up your browser's console and paste in the `awbw_coordinate_heatmap.userscript.js` file contents
+6. Hit enter to execute
+   1. Ensure that a "Generate Heatmap" button appears
+7. Run `python main.py "<YOUR_FOLDER>/*.zip"`
+   You may need to run `pip install -r requirements.txt` first
+8. Copy the line after either "Attacking coords" or "Defending coords"
+   1. There will be a lot of output. You may have to either of those strings
+9. Paste the entire line into the text box after "Enter coordinates from output:"
+10. Press "Generate Heatmap"
