@@ -852,7 +852,7 @@ class AWBWGameState(game.GameState):
         else:
             new_unit_info[transport_id]["cargo2_units_id"] = 0
 
-        unit_keys_int = [
+        unit_keys = [
                 "id",
                 "players_id",
                 "fuel",
@@ -861,14 +861,19 @@ class AWBWGameState(game.GameState):
                 "cost",
                 "x",
                 "y",
-                "hit_points"
+                "hit_points",
+                "name",
+                "symbol",
+            "movement_type"
         ]
         prefix = "units_"
-        unit_keys_str = ["name", "symbol", "movement_type"]
-        for k in unit_keys_int:
-            new_unit_info[loaded_id][k] = int(unit[prefix + k])
-        for k in unit_keys_str:
-            new_unit_info[loaded_id][k] = unit[prefix + k]
+        unit_keys_str = []
+        for k in unit_keys:
+            # In FoW, we may not know the values
+            if isinstance(unit[prefix + k], int):
+                new_unit_info[loaded_id][k] = int(unit[prefix + k])
+            else:
+                new_unit_info[loaded_id][k] = unit[prefix + k]
         new_unit_info[loaded_id]["carried"] = False
 
         return AWBWGameState(
