@@ -83,6 +83,16 @@ python3 main.py /home/gwatson/Downloads/awbw/1168157.zip --verbose INFO
 2. Search for a map
 3. Download all games for that map into a folder
    1. Consider using a browser extension like `downthemall` to download all .zip files, rather than having to click one-by-one
+   2. Consider using this script to get all recently completed games
+   ```javascript
+   Array.from(document.querySelectorAll('a.norm'))
+    .map(ele => ele.href)
+    .map(href => {
+      const m = href.match(/games_id=(\d+)$/);
+      return !m ? undefined : m[1]})
+    .filter(id => id)
+    .map(id => "curl -v 'https://awbw.amarriner.com/replay_download.php?games_id=" + id + "' -H 'Cookie: awbw_username=soccer152; awbw_password=<ENCODED_PASSWORD>; PHPSESSID=<SESSION_ID>' -o " + id + ".zip && sleep 1")
+   ```
 4. Open up the "Preview Map" webpage of the map you choose
    1. e.g. https://awbw.amarriner.com/prevmaps.php?maps_id=154666
 5. Open up your browser's console and paste in the `awbw_coordinate_heatmap.userscript.js` file contents
