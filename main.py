@@ -5,6 +5,7 @@ import glob
 import gzip
 import logging
 import sys
+import zipfile
 from collections import defaultdict
 
 from awbw_replay.awbw import AWBWGameAction, AWBWGameState
@@ -159,7 +160,7 @@ def main(args):
                 with AWBWReplay(filename) as replay:
                     #dump_end_of_day_funds(replay)
                     calc_firing_coords(replay, attackers_coords, defenders_coords)
-            except gzip.BadGzipFile as e:
+            except (zipfile.BadZipFile, gzip.BadGzipFile) as e:
                 logging.error("Could not open replay %s: %s", filename, e)
     print_attackers_defenders_coords(attackers_coords, defenders_coords)
 
