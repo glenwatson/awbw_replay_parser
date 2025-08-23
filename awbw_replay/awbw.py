@@ -110,6 +110,8 @@ class AWBWGameAction(game.GameAction):
         HIDE = "Hide"
         UNHIDE = "Unhide"
         ATTACKSEAM = "AttackSeam"
+        EXPLODE = "Explode"
+        TAG = "Tag"
 
     def __init__(self, replay_action):
         super().__init__()
@@ -393,6 +395,9 @@ class AWBWGameState(game.GameState):
         Helper for move actions
         """
         logging.debug("Move action")
+        # Sometimes move action_data is empty. e.g. during "Hide" actions
+        if len(action_data) == 0:
+            return self
         new_unit_info = deepcopy(self.units)
         # Unit info
         # - position change
@@ -466,6 +471,8 @@ class AWBWGameState(game.GameState):
             for p_id, unit in info.items():
                 if p_id == "global":
                     continue
+                if unit is None:
+                    continue
                 p_id = int(p_id)
                 # Only pick the unit that has full information
                 # (since a player always has full view of their units)
@@ -473,6 +480,8 @@ class AWBWGameState(game.GameState):
                     unit_info = unit
                     break
 
+        if unit_info is None:  # TODO is this the right thing to do?
+            return self
         assert unit_info is not None
 
         unit_keys_int = [
@@ -983,6 +992,54 @@ class AWBWGameState(game.GameState):
             buildings=self.buildings,
             game_info=self.game_info)
 
+    def _apply_explode_action(self, action_data):
+        """
+        Helper Explode actions
+        """
+        logging.debug("Explode action")
+
+        # Unit info
+        # - position change
+        move_state = self
+        if "Move" in action_data and isinstance(action_data["Move"], dict):
+            move_state = self._apply_move_action(action_data["Move"])
+
+        explode_action = action_data["Explode"]
+        assert isinstance(explode_action, dict)
+
+        # Unit info
+        # - health change
+        new_unit_info = deepcopy(move_state.units)
+        exploding_unit = new_unit_info[explode_action["unitId"]]
+        # Remove Black Bomb, error if black bomb unit doesn't exist
+        del new_unit_info[exploding_unit["id"]]
+        # deal damage
+        # find all units within 3 spaces
+        exploded_coords = set()
+        for x_delta in range(-3, 3):
+            for y_delta in range(-3, 3):
+                # Black Bombs do AOE damage to 3 spaces
+                if abs(x_delta) + abs(y_delta) <= 3:
+                    exploded_coords.add((
+                        exploding_unit["x"] + x_delta,
+                        exploding_unit["y"] + y_delta))
+        for (unit_id, data) in new_unit_info.items():
+            if (data["x"], data["y"]) in exploded_coords and \
+                    isinstance(new_unit_info[unit_id]["hit_points"], int) and \
+                    int(new_unit_info[unit_id]["hit_points"]) > 0:
+                # Black Bombs deal 5 HP, but always leave units with at least 1 HP
+                new_unit_info[unit_id]["hit_points"] = max(1, int(new_unit_info[unit_id]["hit_points"]) - 5)
+
+        return AWBWGameState(
+            game_map=self.game_map,
+            players=self.players,
+            units=new_unit_info,
+            buildings=self.buildings,
+            game_info=self.game_info)
+
+    def _apply_tag_action(self, action_data):
+        return self
+
 
     _ACTION_TYPE_TO_APPLY_FUNC = {
             AWBWGameAction.Type.FIRE : _apply_fire_action,
@@ -1001,6 +1058,8 @@ class AWBWGameState(game.GameState):
             AWBWGameAction.Type.HIDE : _apply_hide_action,
             AWBWGameAction.Type.UNHIDE : _apply_unhide_action,
             AWBWGameAction.Type.ATTACKSEAM : _apply_attackseam_action,
+            AWBWGameAction.Type.EXPLODE : _apply_explode_action,
+            AWBWGameAction.Type.TAG : _apply_tag_action,
             }
 
     def apply_action(self, action):
