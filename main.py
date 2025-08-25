@@ -3,6 +3,7 @@
 import argparse
 import glob
 import gzip
+import json
 import logging
 import sys
 import zipfile
@@ -152,19 +153,45 @@ def main(args):
 
     attackers_coords = defaultdict(int)
     defenders_coords = defaultdict(int)
+    first_building_hash = None
+    filter_count = 0
+    total_count = 0
     for file_glob in args.files:
         logging.info("Processing file glob %s", file_glob)
         for filename in glob.iglob(file_glob):
             logging.info("Opening %s", filename)
             try:
                 with AWBWReplay(filename) as replay:
+                    # get the initial game state and hash it, so we can check that each replay is for the same map
+                    game_state = AWBWGameState(replay_initial=replay.game_info())
+                    buildings_list = sorted(serialize_building(building) for building in game_state.buildings.values())
+                    building_hash = hash(json.dumps(buildings_list))
+                    if not first_building_hash:
+                        first_building_hash = building_hash
+                        logging.info("First hash is for map %s", first_building_hash)
+                    elif first_building_hash != building_hash:
+                        logging.error("Replay %s is for a different map than the first replay %s", filename, building_hash)
+                        filter_count += 1
+                        continue
+
                     #dump_end_of_day_funds(replay)
                     calc_firing_coords(replay, attackers_coords, defenders_coords)
+                    total_count += 1
             except (zipfile.BadZipFile, gzip.BadGzipFile) as e:
                 logging.error("Could not open replay %s: %s", filename, e)
     print_attackers_defenders_coords(attackers_coords, defenders_coords)
+    logging.info("Total replays: %d, filtered replays: %d", total_count, filter_count)
 
     return EXIT_SUCCESS
+
+
+def serialize_building(building):
+    del building["id"]
+    if "player" in building:
+        del building["player"]
+    if "team" in building:
+        del building["team"]
+    return str(building)
 
 
 if __name__ == "__main__":
