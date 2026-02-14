@@ -105,6 +105,25 @@ def calc_firing_coords(replay: AWBWReplay, attackers_coords: defaultdict, defend
                     continue
         # Apply the action to the latest game state
         states.append(states[-1].apply_action(action))
+def calc_move_coords(replay: AWBWReplay, move_coords: defaultdict):
+    """Parses a replay to generate coordinates where units move"""
+    states = [AWBWGameState(replay_initial=replay.game_info())]
+
+    # Generate all the states
+    # States are the way the game looked as the turn ended
+    for action in replay.actions():
+        # Get the action
+        action = AWBWGameAction(replay_action=action)
+        if action.type == AWBWGameAction.Type.MOVE:
+            key = 'global'
+            # During FoW (fog) games, there is no 'global' view
+            if key not in action.info['unit']:
+                key = next(iter(action.info['paths'].keys()))
+            unit_type = action.info['unit'][key]['units_name']
+            for coord in action.info['paths'][key]:
+                move_coords[unit_type][(coord['x'], coord['y'])] += 1
+        # Apply the action to the latest game state
+        states.append(states[-1].apply_action(action))
 
 
 def print_coord_frequencies(coords_frequencies):
@@ -145,11 +164,25 @@ def print_attackers_defenders_coords(attackers_coords: defaultdict, defenders_co
     print_coord_frequencies(defenders_coords)
 
 
+def print_unit_move_coords(unit_to_coord_to_freq: defaultdict):
+    for unit_name in unit_to_coord_to_freq.keys():
+        sorted_unit_to_coord_to_freq = sorted(unit_to_coord_to_freq[unit_name].items(), key=lambda kv: kv[1], reverse=True)
+
+        print(unit_name + " coords:")
+        coords_str = ""
+        for coord, count in sorted_unit_to_coord_to_freq:
+            coords_str += str(coord) + " " + str(count) + ";"
+        print(coords_str)
+
+        print_coord_frequencies(unit_to_coord_to_freq[unit_name])
+
+
 def main(args):
     """Handles the CLI args to call analyze one or more replays"""
     # TODO: Define a custom logger to individually control the logging level of our modules
     logging.basicConfig(level=args.verbose)
 
+    unit_to_coord_to_freq = defaultdict(lambda: defaultdict(int))
     attackers_coords = defaultdict(int)
     defenders_coords = defaultdict(int)
     for file_glob in args.files:
@@ -159,9 +192,11 @@ def main(args):
             try:
                 with AWBWReplay(filename) as replay:
                     #dump_end_of_day_funds(replay)
+                    calc_move_coords(replay, unit_to_coord_to_freq)
                     calc_firing_coords(replay, attackers_coords, defenders_coords)
-            except (zipfile.BadZipFile, gzip.BadGzipFile) as e:
-                logging.error("Could not open replay %s: %s", filename, e)
+            except Exception as e:
+                logging.exception("Bad replay:%s", filename)
+    print_unit_move_coords(unit_to_coord_to_freq)
     print_attackers_defenders_coords(attackers_coords, defenders_coords)
 
     return EXIT_SUCCESS
