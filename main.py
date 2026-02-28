@@ -7,6 +7,8 @@ import logging
 import sys
 import zipfile
 from collections import defaultdict
+from pathvalidate import sanitize_filepath
+import os
 
 from awbw_replay.awbw import AWBWGameAction, AWBWGameState
 from awbw_replay.replay import AWBWReplay
@@ -33,7 +35,7 @@ def get_args(argv=None):
 
     parser = argparse.ArgumentParser(description="AWBW Replay Parser tool")
 
-    parser.add_argument("files", help="Replay file to open", type=str, nargs='+')
+    parser.add_argument("map-id", help="The awbw.amarriner.com maps_id", type=int)
     parser.add_argument(
             "--verbose",
             "-v",
@@ -44,6 +46,25 @@ def get_args(argv=None):
 
     return parser.parse_args(argv)
 
+def get_awbw_map_name(map_id: int):
+    # TODO Get page https://awbw.amarriner.com/prevmaps.php?maps_id=...
+    # TODO Parse .game-header-header > b > a CSS selector
+    # TODO Return value of map name
+    pass
+
+def get_game_replay_urls(map_name: str):
+    # TODO GET http://awbw.mooo.com/search?q=Gaea%27s+Forgiveness
+    # TODO Parse .dC > a CSS selector
+    # TODO Return URLs
+    pass
+
+def check_if_already_downloaded(url: str, directory: str):
+    # TODO check if the file name in url already exists in directory
+    pass
+
+def download_file_to_dir(url: str, directory: str):
+    # TODO download file at url to directory
+    pass
 
 def dump_end_of_day_funds(replay):
     """Parses a replay to generate plots of data"""
@@ -182,20 +203,32 @@ def main(args):
     # TODO: Define a custom logger to individually control the logging level of our modules
     logging.basicConfig(level=args.verbose)
 
+    map_name = get_awbw_map_name(args.map-id)
+    logging.info("Map Name: %s", map_name)
+    download_directory = sanitize_filepath(map_name)
+    logging.info("Download directory: %s", download_directory)
+    map_replay_urls = get_game_replay_urls(map_name)
+    logging.info("%s replay urls", len(map_replay_urls))
+    for url in map_replay_urls:
+        if not check_if_already_downloaded(url, download_directory):
+            logging.info("Downloading %s to %s", url, download_directory)
+            download_file_to_dir(url, download_directory)
+
+
+    # Unit name -> coordinate -> frequency that unit moved across that coordinate
     unit_to_coord_to_freq = defaultdict(lambda: defaultdict(int))
     attackers_coords = defaultdict(int)
     defenders_coords = defaultdict(int)
-    for file_glob in args.files:
-        logging.info("Processing file glob %s", file_glob)
-        for filename in glob.iglob(file_glob):
-            logging.info("Opening %s", filename)
-            try:
-                with AWBWReplay(filename) as replay:
-                    #dump_end_of_day_funds(replay)
-                    calc_move_coords(replay, unit_to_coord_to_freq)
-                    calc_firing_coords(replay, attackers_coords, defenders_coords)
-            except Exception as e:
-                logging.exception("Bad replay:%s", filename)
+    for filename in os.listdir(download_directory):
+        logging.info("Opening %s", filename)
+        try:
+            with AWBWReplay(filename) as replay:
+                #dump_end_of_day_funds(replay)
+                # TODO verify that the map_id of the replay matches args.map-id
+                calc_move_coords(replay, unit_to_coord_to_freq)
+                calc_firing_coords(replay, attackers_coords, defenders_coords)
+        except Exception as e:
+            logging.exception("Bad replay:%s", filename)
     print_unit_move_coords(unit_to_coord_to_freq)
     print_attackers_defenders_coords(attackers_coords, defenders_coords)
 
