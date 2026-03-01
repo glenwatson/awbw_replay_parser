@@ -236,7 +236,7 @@ def main(args):
     unit_to_coord_to_freq = defaultdict(lambda: defaultdict(int))
     attackers_coords = defaultdict(int)
     defenders_coords = defaultdict(int)
-    for filename in os.listdir(download_directory):
+    for filename in [file for file in os.listdir(download_directory) if file.lower().endswith('.zip')]:
         logger.info("Opening %s", filename)
         try:
             with AWBWReplay(os.path.join(download_directory, filename)) as replay:
