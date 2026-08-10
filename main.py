@@ -209,10 +209,15 @@ def print_attacking_day_averages(attacking_day_counts: List[int], num_of_replays
     if num_of_replays_processed == 0:
         print("No replays processed")
         return
-    for index, attack_count in enumerate(attacking_day_counts):
-        print("Day " + str(index) + " had on average " + str(round(attack_count / num_of_replays_processed, 2)) + " attacks. "
-            "(" + str(attack_count) + " attacks / " + str(num_of_replays_processed) + " games)")
+    for day, attack_count in enumerate(attacking_day_counts):
+        print(format_day(day) + " had on average " + str(round(attack_count / num_of_replays_processed, 2)) + " attacks."
+            " (" + str(attack_count) + " attacks / " + str(num_of_replays_processed) + " games)")
     print(str(sum(attacking_day_counts)) + " total attacks")
+
+
+def format_day(day: int):
+    # TODO assumes only 2 players
+    return "Day " + str(round(day / 2) + 1) + "." + str(day % 2)
 
 
 def main(args):
