@@ -218,6 +218,9 @@ def main(args):
     logger.setLevel(args.verbose)
 
     map_name = get_awbw_map_name(args.map_id)
+    if map_name is None:
+        logger.error("No map found for %s", args.map_id)
+        return EXIT_FAILURE
     logger.info("Map Name: %s", map_name)
 
     download_directory = sanitize_filepath(f"{args.download_directory if args.download_directory is not None else 'maps'}/{args.map_id}")
