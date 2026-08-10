@@ -9,7 +9,7 @@ from pathvalidate import sanitize_filepath
 import os
 import urllib.parse
 import urllib.request
-from typing import List
+from typing import Dict, List
 
 from awbw_replay.awbw import AWBWGameAction, AWBWGameState
 from awbw_replay.replay import AWBWReplay
@@ -113,73 +113,45 @@ def dump_end_of_day_funds(replay):
         logging.info(player['name'] + " " + str(player['funds']))
 
 
-def calc_firing_coords(replay: AWBWReplay, attackers_coords: defaultdict, defenders_coords: defaultdict):
-    """Parses a replay to generate coordinates where firing happens"""
-    states = [AWBWGameState(replay_initial=replay.game_info())]
-
-    # Generate all the states
-    # States are the way the game looked as the turn ended
-    for action in replay.actions():
-        # Get the action
-        action = AWBWGameAction(replay_action=action)
-        if action.type == AWBWGameAction.Type.FIRE:
-            action_infos = action.info[AWBWGameAction.Type.FIRE.value]['combatInfoVision']
-            # Each fire action seems to have 2 entries (1 for each player?)
-            # Take the one that has visibility into both the attacker and the defender
-            for action_info in action_infos.values():
-                if isinstance(action_info['combatInfo']['attacker'], dict) and isinstance(action_info['combatInfo']['defender'], dict):
-                    attackers_coords[
-                        (action_info['combatInfo']['attacker']['units_x'],
-                         action_info['combatInfo']['attacker']['units_y'])] += 1
-                    defenders_coords[
-                        (action_info['combatInfo']['defender']['units_x'],
-                         action_info['combatInfo']['defender']['units_y'])] += 1
-                    break
-                else:
-                    continue
-        # Apply the action to the latest game state
-        states.append(states[-1].apply_action(action))
-def calc_move_coords(replay: AWBWReplay, move_coords: defaultdict):
-    """Parses a replay to generate coordinates where units move"""
-    states = [AWBWGameState(replay_initial=replay.game_info())]
-
-    # Generate all the states
-    # States are the way the game looked as the turn ended
-    for action in replay.actions():
-        # Get the action
-        action = AWBWGameAction(replay_action=action)
-        if action.type == AWBWGameAction.Type.MOVE:
-            key = 'global'
-            # During FoW (fog) games, there is no 'global' view
-            if key not in action.info['unit']:
-                key = next(iter(action.info['paths'].keys()))
-            unit_type = action.info['unit'][key]['units_name']
-            for coord in action.info['paths'][key]:
-                move_coords[unit_type][(coord['x'], coord['y'])] += 1
-        # Apply the action to the latest game state
-        states.append(states[-1].apply_action(action))
-
-
-def add_attacking_days(replay, attacking_turn_counts):
-    """Counts the number of attacks on each day"""
-    states = [AWBWGameState(replay_initial=replay.game_info())]
-
-    # Generate all the states
-    # States are the way the game looked as the turn ended
-    day = 0
-    for action in replay.actions():
-        # Get the action
-        action = AWBWGameAction(replay_action=action)
-        if action.type == AWBWGameAction.Type.FIRE:
-            if day < len(attacking_turn_counts):
-                attacking_turn_counts[day] += 1
+def calc_firing_coords(action: AWBWGameAction, attackers_coords: defaultdict, defenders_coords: defaultdict):
+    """Generates coordinates where firing happens"""
+    if action.type == AWBWGameAction.Type.FIRE:
+        action_infos = action.info[AWBWGameAction.Type.FIRE.value]['combatInfoVision']
+        # Each fire action seems to have 2 entries (1 for each player?)
+        # Take the one that has visibility into both the attacker and the defender
+        for action_info in action_infos.values():
+            if isinstance(action_info['combatInfo']['attacker'], dict) and isinstance(action_info['combatInfo']['defender'], dict):
+                attackers_coords[
+                    (action_info['combatInfo']['attacker']['units_x'],
+                     action_info['combatInfo']['attacker']['units_y'])] += 1
+                defenders_coords[
+                    (action_info['combatInfo']['defender']['units_x'],
+                     action_info['combatInfo']['defender']['units_y'])] += 1
+                break
             else:
-                attacking_turn_counts.extend([0] * (day - len(attacking_turn_counts) + 1))
-                attacking_turn_counts[day] = 1
-        elif action.type == AWBWGameAction.Type.END or action.type == AWBWGameAction.Type.TAG:
-            day += 1
-        # Apply the action to the latest game state
-        states.append(states[-1].apply_action(action))
+                continue
+
+
+def calc_move_coords(action: AWBWGameAction, move_coords: defaultdict):
+    """Generates coordinates where units move"""
+    if action.type == AWBWGameAction.Type.MOVE:
+        key = 'global'
+        # During FoW (fog) games, there is no 'global' view
+        if key not in action.info['unit']:
+            key = next(iter(action.info['paths'].keys()))
+        unit_type = action.info['unit'][key]['units_name']
+        for coord in action.info['paths'][key]:
+            move_coords[unit_type][(coord['x'], coord['y'])] += 1
+
+
+def add_attacking_days(action: AWBWGameAction, day: int, attacking_turn_counts: List[int]):
+    """Counts the number of attacks on each day"""
+    if action.type == AWBWGameAction.Type.FIRE:
+        if day < len(attacking_turn_counts):
+            attacking_turn_counts[day] += 1
+        else:
+            attacking_turn_counts.extend([0] * (day - len(attacking_turn_counts) + 1))
+            attacking_turn_counts[day] = 1
 
 
 def print_human_readable_coord_frequencies(coords_frequencies):
@@ -237,11 +209,10 @@ def print_attacking_day_averages(attacking_day_counts: List[int], num_of_replays
     if num_of_replays_processed == 0:
         print("No replays processed")
         return
-    total_attacks = sum(attacking_day_counts)
-    print(str(total_attacks) + " total attacks")
     for index, attack_count in enumerate(attacking_day_counts):
         print("Day " + str(index) + " had on average " + str(round(attack_count / num_of_replays_processed, 2)) + " attacks. "
             "(" + str(attack_count) + " attacks / " + str(num_of_replays_processed) + " games)")
+    print(str(sum(attacking_day_counts)) + " total attacks")
 
 
 def main(args):
@@ -285,9 +256,25 @@ def main(args):
                     logger.warning("Replay %s has maps_id %s, expected %s; skipping",
                                    filename, replay.game_info()["maps_id"], args.map_id)
                     continue
-                calc_move_coords(replay, unit_to_coord_to_freq)
-                calc_firing_coords(replay, attackers_coords, defenders_coords)
-                add_attacking_days(replay, attacking_day_counts)
+                states = [AWBWGameState(replay_initial=replay.game_info())]
+                day = 0
+
+                # Generate all the states
+                # States are the way the game looked as the turn ended
+                for action in replay.actions():
+                    # Get the action
+                    action = AWBWGameAction(replay_action=action)
+                    # calculate things for this action
+                    calc_move_coords(action, unit_to_coord_to_freq)
+                    calc_firing_coords(action, attackers_coords, defenders_coords)
+                    add_attacking_days(action, day, attacking_day_counts)
+
+                    # progress the day
+                    if action.type == AWBWGameAction.Type.END:
+                        day += 1
+
+                    # Apply the action to the latest game state
+                    states.append(states[-1].apply_action(action))
                 num_of_replays_processed_successfully += 1
         except Exception as e:
             logger.exception("Bad replay: %s", filename)
