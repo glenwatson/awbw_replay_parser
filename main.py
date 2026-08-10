@@ -9,6 +9,7 @@ from pathvalidate import sanitize_filepath
 import os
 import urllib.parse
 import urllib.request
+from typing import List
 
 from awbw_replay.awbw import AWBWGameAction, AWBWGameState
 from awbw_replay.replay import AWBWReplay
@@ -159,6 +160,28 @@ def calc_move_coords(replay: AWBWReplay, move_coords: defaultdict):
         states.append(states[-1].apply_action(action))
 
 
+def add_attacking_days(replay, attacking_turn_counts):
+    """Counts the number of attacks on each day"""
+    states = [AWBWGameState(replay_initial=replay.game_info())]
+
+    # Generate all the states
+    # States are the way the game looked as the turn ended
+    day = 0
+    for action in replay.actions():
+        # Get the action
+        action = AWBWGameAction(replay_action=action)
+        if action.type == AWBWGameAction.Type.FIRE:
+            if day < len(attacking_turn_counts):
+                attacking_turn_counts[day] += 1
+            else:
+                attacking_turn_counts.extend([0] * (day - len(attacking_turn_counts) + 1))
+                attacking_turn_counts[day] = 1
+        elif action.type == AWBWGameAction.Type.END or action.type == AWBWGameAction.Type.TAG:
+            day += 1
+        # Apply the action to the latest game state
+        states.append(states[-1].apply_action(action))
+
+
 def print_human_readable_coord_frequencies(coords_frequencies):
     if len(coords_frequencies) == 0:
         logging.warning("Skipping due to no coordinates")
@@ -210,6 +233,17 @@ def print_unit_move_coords(unit_to_coord_to_freq: defaultdict):
         # print_human_readable_coord_frequencies(unit_to_coord_to_freq[unit_name])
 
 
+def print_attacking_day_averages(attacking_day_counts: List[int], num_of_replays_processed: int):
+    if num_of_replays_processed == 0:
+        print("No replays processed")
+        return
+    total_attacks = sum(attacking_day_counts)
+    print(str(total_attacks) + " total attacks")
+    for index, attack_count in enumerate(attacking_day_counts):
+        print("Day " + str(index) + " had on average " + str(round(attack_count / num_of_replays_processed, 2)) + " attacks. "
+            "(" + str(attack_count) + " attacks / " + str(num_of_replays_processed) + " games)")
+
+
 def main(args):
     """Handles the CLI args to call analyze one or more replays"""
     # Set up root logger for library modules; named logger for this module
@@ -239,6 +273,9 @@ def main(args):
     unit_to_coord_to_freq = defaultdict(lambda: defaultdict(int))
     attackers_coords = defaultdict(int)
     defenders_coords = defaultdict(int)
+    # turn (day) -> # of attacks on that day
+    attacking_day_counts = []
+    num_of_replays_processed_successfully = 0
     for filename in [file for file in os.listdir(download_directory) if file.lower().endswith('.zip')]:
         logger.info("Opening %s", filename)
         try:
@@ -250,10 +287,13 @@ def main(args):
                     continue
                 calc_move_coords(replay, unit_to_coord_to_freq)
                 calc_firing_coords(replay, attackers_coords, defenders_coords)
+                add_attacking_days(replay, attacking_day_counts)
+                num_of_replays_processed_successfully += 1
         except Exception as e:
             logger.exception("Bad replay: %s", filename)
     print_unit_move_coords(unit_to_coord_to_freq)
     print_attackers_defenders_coords(attackers_coords, defenders_coords)
+    print_attacking_day_averages(attacking_day_counts, num_of_replays_processed_successfully)
 
     return EXIT_SUCCESS
 
