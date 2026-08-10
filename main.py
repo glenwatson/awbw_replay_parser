@@ -61,6 +61,10 @@ def get_awbw_map_name(map_id: int):
 
 def get_game_replay_urls(map_name: str):
     url = f"http://awbw.mooo.com/search?q={urllib.parse.quote(map_name)}"
+    return (_get_game_replay_urls_from_url(url)
+            + _get_game_replay_urls_from_url(url + "&offset=501"))
+
+def _get_game_replay_urls_from_url(url: str):
     with urllib.request.urlopen(url) as response:
         html = response.read().decode('utf-8')
     # Match .dC > a: allow only whitespace between the opening .dC tag and the <a>
