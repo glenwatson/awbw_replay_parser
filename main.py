@@ -2,14 +2,15 @@
 
 import argparse
 import logging
-import sys
-from collections import defaultdict
-import re
-from pathvalidate import sanitize_filepath
 import os
+import re
+import sys
 import urllib.parse
 import urllib.request
-from typing import Dict, List
+from collections import defaultdict
+from typing import List
+
+from pathvalidate import sanitize_filepath
 
 from awbw_replay.awbw import AWBWGameAction, AWBWGameState
 from awbw_replay.replay import AWBWReplay
