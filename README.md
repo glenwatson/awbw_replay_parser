@@ -73,9 +73,12 @@ Please review the [contribution guidelines](https://github.com/TarkanAl-Kazily/a
 
 Spoiler alert: Bugs probably exist in this repository. Please use Github's Issues system for reporting, and be as detailed as you can. Again, see the contributing guidelines for more information.
 
-source /home/gwatson/Documents/repos/awbw_replay_parser/venv/bin/activate
-
+```
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 python3 main.py /home/gwatson/Downloads/awbw/1168157.zip --verbose INFO
+```
 
 
 # Attacking/Defending HeatMap
