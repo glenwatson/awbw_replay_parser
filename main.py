@@ -61,7 +61,7 @@ def get_awbw_map_name(map_id: int):
     return match.group(1).strip() if match else None
 
 def get_game_replay_urls(map_name: str):
-    url = f"http://awbw.mooo.com/search?q={urllib.parse.quote(map_name)}"
+    url = f"http://awbw.mooo.com/search?q=\"{urllib.parse.quote(map_name)}\""
     return (_get_game_replay_urls_from_url(url)
             + _get_game_replay_urls_from_url(url + "&offset=501"))
 
